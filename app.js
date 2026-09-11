@@ -3,16 +3,10 @@
 
   var STORAGE_KEY = "bukukas_transactions_v1";
 
-  var CATEGORIES = [
-    "Makanan",
-    "Transportasi",
-    "Belanja",
-    "Tagihan",
-    "Hiburan",
-    "Kesehatan",
-    "Pendidikan",
-    "Lainnya",
-  ];
+  var CATEGORIES_BY_TYPE = {
+    expense: ["Makanan", "Transportasi", "Belanja", "Tagihan", "Hiburan", "Kesehatan", "Pendidikan", "Lainnya"],
+    income: ["Gaji", "Bonus", "Hadiah", "Investasi", "Jual barang", "Lainnya"],
+  };
 
   var CATEGORY_COLORS = {
     "Makanan": "#C9A24B",
@@ -23,6 +17,27 @@
     "Kesehatan": "#6FB3B8",
     "Pendidikan": "#C1A06F",
     "Lainnya": "#9BA3A8",
+    "Gaji": "#7FA98A",
+    "Bonus": "#C9A24B",
+    "Hadiah": "#B98CC1",
+    "Investasi": "#6FB3B8",
+    "Jual barang": "#8C9BC1",
+  };
+
+  var CATEGORY_EMOJI = {
+    "Makanan": "🍔",
+    "Transportasi": "🚗",
+    "Belanja": "🛍️",
+    "Tagihan": "🧾",
+    "Hiburan": "🎬",
+    "Kesehatan": "💊",
+    "Pendidikan": "📚",
+    "Lainnya": "✨",
+    "Gaji": "💰",
+    "Bonus": "🎁",
+    "Hadiah": "🎉",
+    "Investasi": "📈",
+    "Jual barang": "🏷️",
   };
 
   var MONTH_NAMES = [
@@ -69,21 +84,26 @@
     return sign + "Rp " + abs.toLocaleString("id-ID");
   }
 
-  function parseAmountInput(str) {
-    var digits = str.replace(/[^0-9]/g, "");
-    return digits ? parseInt(digits, 10) : 0;
+  function hexToRgba(hex, alpha) {
+    var h = hex.replace("#", "");
+    var r = parseInt(h.substring(0, 2), 16);
+    var g = parseInt(h.substring(2, 4), 16);
+    var b = parseInt(h.substring(4, 6), 16);
+    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
   }
 
-  function formatAmountInput(str) {
-    var num = parseAmountInput(str);
-    return num ? num.toLocaleString("id-ID") : "";
-  }
-
-  function todayISO() {
-    var d = new Date();
+  function toISODate(d) {
     var m = String(d.getMonth() + 1).padStart(2, "0");
     var day = String(d.getDate()).padStart(2, "0");
     return d.getFullYear() + "-" + m + "-" + day;
+  }
+
+  function todayISO() { return toISODate(new Date()); }
+
+  function yesterdayISO() {
+    var d = new Date();
+    d.setDate(d.getDate() - 1);
+    return toISODate(d);
   }
 
   function isInViewMonth(dateStr) {
@@ -114,6 +134,12 @@
 
     var days = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
     return days[d.getDay()] + ", " + d.getDate() + " " + MONTH_NAMES[d.getMonth()];
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
   }
 
   // ---------- rendering ----------
@@ -163,9 +189,10 @@
     list.innerHTML = cats.map(function (cat) {
       var pct = grandTotal ? Math.round((totals[cat] / grandTotal) * 100) : 0;
       var color = CATEGORY_COLORS[cat] || "#9BA3A8";
+      var emoji = CATEGORY_EMOJI[cat] || "✨";
       return (
         '<div class="breakdown-row">' +
-          '<span class="breakdown-cat">' + escapeHtml(cat) + '</span>' +
+          '<span class="breakdown-cat">' + emoji + ' ' + escapeHtml(cat) + '</span>' +
           '<span class="breakdown-bar-track"><span class="breakdown-bar-fill" style="width:' + pct + '%;background:' + color + '"></span></span>' +
           '<span class="breakdown-amount">' + formatRupiah(totals[cat]) + '</span>' +
         '</div>'
@@ -202,15 +229,16 @@
     container.innerHTML = groups.map(function (g) {
       var rows = g.items.map(function (t) {
         var color = CATEGORY_COLORS[t.category] || "#9BA3A8";
+        var emoji = CATEGORY_EMOJI[t.category] || "✨";
         var sign = t.type === "expense" ? "-" : "+";
         return (
           '<div class="tx-row" data-id="' + t.id + '">' +
-            '<span class="tx-cat-dot" style="background:' + color + '"></span>' +
+            '<span class="tx-cat-icon" style="background:' + hexToRgba(color, 0.18) + '">' + emoji + '</span>' +
             '<div class="tx-info">' +
               '<div class="tx-cat">' + escapeHtml(t.category) + '</div>' +
               (t.note ? '<div class="tx-note">' + escapeHtml(t.note) + '</div>' : '') +
             '</div>' +
-            '<span class="tx-amount ' + t.type + '">' + sign + formatRupiah(t.amount).replace('Rp ', 'Rp ') + '</span>' +
+            '<span class="tx-amount ' + t.type + '">' + sign + formatRupiah(t.amount) + '</span>' +
           '</div>'
         );
       }).join("");
@@ -227,32 +255,61 @@
     });
   }
 
-  function escapeHtml(str) {
-    var div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
   // ---------- sheet (add/edit form) ----------
   var overlay = document.getElementById("sheetOverlay");
   var form = document.getElementById("txForm");
-  var amountInput = document.getElementById("amountInput");
-  var categoryInput = document.getElementById("categoryInput");
+  var amountValueEl = document.getElementById("amountValue");
   var noteInput = document.getElementById("noteInput");
   var dateInput = document.getElementById("dateInput");
+  var dateTodayBtn = document.getElementById("dateTodayBtn");
+  var dateYesterdayBtn = document.getElementById("dateYesterdayBtn");
   var deleteBtn = document.getElementById("deleteBtn");
   var sheetTitle = document.getElementById("sheetTitle");
+  var categoryChips = document.getElementById("categoryChips");
+
   var currentType = "expense";
+  var currentCategory = CATEGORIES_BY_TYPE.expense[0];
+  var amountDigits = "0";
 
-  categoryInput.innerHTML = CATEGORIES.map(function (c) {
-    return '<option value="' + c + '">' + c + '</option>';
-  }).join("");
+  function buildCategoryChips(type, selected) {
+    var cats = CATEGORIES_BY_TYPE[type];
+    categoryChips.innerHTML = cats.map(function (cat) {
+      var color = CATEGORY_COLORS[cat];
+      var emoji = CATEGORY_EMOJI[cat];
+      var active = cat === selected ? " active" : "";
+      return (
+        '<button type="button" class="cat-chip' + active + '" data-cat="' + cat + '">' +
+          '<span class="cat-emoji" style="background:' + hexToRgba(color, 0.18) + '">' + emoji + '</span>' +
+          '<span class="cat-name">' + cat + '</span>' +
+        '</button>'
+      );
+    }).join("");
+  }
 
-  function setType(type) {
+  function setCategory(cat) {
+    currentCategory = cat;
+    Array.prototype.forEach.call(categoryChips.querySelectorAll(".cat-chip"), function (chip) {
+      chip.classList.toggle("active", chip.getAttribute("data-cat") === cat);
+    });
+  }
+
+  categoryChips.addEventListener("click", function (e) {
+    var chip = e.target.closest(".cat-chip");
+    if (!chip) return;
+    setCategory(chip.getAttribute("data-cat"));
+  });
+
+  function setType(type, preferredCategory) {
     currentType = type;
     Array.prototype.forEach.call(document.querySelectorAll(".type-opt"), function (btn) {
       btn.classList.toggle("active", btn.getAttribute("data-type") === type);
     });
+    var cats = CATEGORIES_BY_TYPE[type];
+    var selected = (preferredCategory && cats.indexOf(preferredCategory) !== -1)
+      ? preferredCategory
+      : cats[0];
+    currentCategory = selected;
+    buildCategoryChips(type, selected);
   }
 
   Array.prototype.forEach.call(document.querySelectorAll(".type-opt"), function (btn) {
@@ -261,12 +318,46 @@
     });
   });
 
-  amountInput.addEventListener("input", function () {
-    var cursorFromEnd = amountInput.value.length - amountInput.selectionStart;
-    amountInput.value = formatAmountInput(amountInput.value);
-    var pos = amountInput.value.length - cursorFromEnd;
-    amountInput.setSelectionRange(pos, pos);
+  // ---------- keypad ----------
+  function renderAmount() {
+    var num = parseInt(amountDigits, 10) || 0;
+    amountValueEl.textContent = num.toLocaleString("id-ID");
+  }
+
+  document.getElementById("keypad").addEventListener("click", function (e) {
+    var key = e.target.closest(".key");
+    if (!key) return;
+    var val = key.getAttribute("data-key");
+
+    if (val === "del") {
+      amountDigits = amountDigits.slice(0, -1) || "0";
+    } else {
+      if (amountDigits === "0") amountDigits = "";
+      amountDigits += val;
+      // cap at a sane length (999,999,999,999)
+      if (amountDigits.length > 12) amountDigits = amountDigits.slice(0, 12);
+    }
+    renderAmount();
   });
+
+  // ---------- date quick chips ----------
+  function syncDateChips() {
+    var val = dateInput.value;
+    dateTodayBtn.classList.toggle("active", val === todayISO());
+    dateYesterdayBtn.classList.toggle("active", val === yesterdayISO());
+  }
+
+  dateTodayBtn.addEventListener("click", function () {
+    dateInput.value = todayISO();
+    syncDateChips();
+  });
+
+  dateYesterdayBtn.addEventListener("click", function () {
+    dateInput.value = yesterdayISO();
+    syncDateChips();
+  });
+
+  dateInput.addEventListener("change", syncDateChips);
 
   function openSheetForAdd() {
     state.editingId = null;
@@ -274,8 +365,10 @@
     deleteBtn.hidden = true;
     form.reset();
     setType("expense");
+    amountDigits = "0";
+    renderAmount();
     dateInput.value = todayISO();
-    categoryInput.value = CATEGORIES[0];
+    syncDateChips();
     openSheet();
   }
 
@@ -285,11 +378,12 @@
     state.editingId = id;
     sheetTitle.textContent = "Edit catatan";
     deleteBtn.hidden = false;
-    setType(t.type);
-    amountInput.value = t.amount.toLocaleString("id-ID");
-    categoryInput.value = t.category;
+    setType(t.type, t.category);
+    amountDigits = String(t.amount);
+    renderAmount();
     noteInput.value = t.note || "";
     dateInput.value = t.date;
+    syncDateChips();
     openSheet();
   }
 
@@ -311,9 +405,9 @@
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
-    var amount = parseAmountInput(amountInput.value);
+    var amount = parseInt(amountDigits, 10) || 0;
     if (!amount) {
-      amountInput.focus();
+      document.getElementById("keypad").scrollIntoView({ block: "center", behavior: "smooth" });
       return;
     }
 
@@ -321,7 +415,7 @@
       var t = state.transactions.find(function (tx) { return tx.id === state.editingId; });
       t.type = currentType;
       t.amount = amount;
-      t.category = categoryInput.value;
+      t.category = currentCategory;
       t.note = noteInput.value.trim();
       t.date = dateInput.value;
     } else {
@@ -329,7 +423,7 @@
         id: uid(),
         type: currentType,
         amount: amount,
-        category: categoryInput.value,
+        category: currentCategory,
         note: noteInput.value.trim(),
         date: dateInput.value,
         createdAt: Date.now(),
