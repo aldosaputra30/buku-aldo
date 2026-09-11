@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Buku Kas — Catatan Pengeluaran</title>
+<meta name="description" content="Catat pengeluaran dan pemasukan harianmu, tersimpan langsung di perangkat.">
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14181B">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="brand">
+      <span class="brand-mark">Rp</span>
+      <span class="brand-name">Buku Kas</span>
+    </div>
+
+    <div class="month-nav">
+      <button class="month-btn" id="prevMonth" aria-label="Bulan sebelumnya">‹</button>
+      <span class="month-label" id="monthLabel">September 2026</span>
+      <button class="month-btn" id="nextMonth" aria-label="Bulan berikutnya">›</button>
+    </div>
+
+    <div class="summary">
+      <div class="summary-main">
+        <span class="summary-label">Sisa bulan ini</span>
+        <span class="summary-value" id="balanceValue">Rp 0</span>
+      </div>
+      <div class="summary-split">
+        <div class="split-item income">
+          <span class="dot"></span>
+          <span class="split-label">Masuk</span>
+          <span class="split-value" id="incomeValue">Rp 0</span>
+        </div>
+        <div class="split-item expense">
+          <span class="dot"></span>
+          <span class="split-label">Keluar</span>
+          <span class="split-value" id="expenseValue">Rp 0</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- CATEGORY BREAKDOWN -->
+  <section class="breakdown" id="breakdownSection">
+    <h2 class="section-title">Pengeluaran per kategori</h2>
+    <div class="breakdown-list" id="breakdownList"></div>
+  </section>
+
+  <!-- TRANSACTION LIST -->
+  <section class="transactions">
+    <h2 class="section-title">Riwayat</h2>
+    <div id="txList" class="tx-list"></div>
+    <div id="emptyState" class="empty-state" hidden>
+      <p>Belum ada catatan bulan ini.</p>
+      <p class="empty-sub">Ketuk tombol + untuk mulai mencatat.</p>
+    </div>
+  </section>
+
+  <div class="bottom-actions">
+    <button class="text-btn" id="exportBtn">Ekspor data</button>
+    <button class="text-btn" id="importBtn">Impor data</button>
+    <input type="file" id="importFile" accept="application/json" hidden>
+  </div>
+
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fabAdd" aria-label="Tambah catatan">+</button>
+
+<!-- ADD/EDIT SHEET -->
+<div class="sheet-overlay" id="sheetOverlay">
+  <form class="sheet" id="txForm">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" id="sheetTitle">Catatan baru</h2>
+
+    <div class="type-toggle">
+      <button type="button" class="type-opt active" data-type="expense">Pengeluaran</button>
+      <button type="button" class="type-opt" data-type="income">Pemasukan</button>
+    </div>
+
+    <label class="field">
+      <span class="field-label">Jumlah</span>
+      <div class="amount-input">
+        <span class="amount-prefix">Rp</span>
+        <input type="text" inputmode="numeric" id="amountInput" placeholder="0" required>
+      </div>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Kategori</span>
+      <select id="categoryInput" class="select"></select>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Catatan (opsional)</span>
+      <input type="text" id="noteInput" class="text-input" placeholder="cth. Makan siang">
+    </label>
+
+    <label class="field">
+      <span class="field-label">Tanggal</span>
+      <input type="date" id="dateInput" class="text-input" required>
+    </label>
+
+    <div class="sheet-actions">
+      <button type="button" class="btn ghost" id="deleteBtn" hidden>Hapus</button>
+      <button type="button" class="btn ghost" id="cancelBtn">Batal</button>
+      <button type="submit" class="btn primary">Simpan</button>
+    </div>
+  </form>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
