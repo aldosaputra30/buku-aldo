@@ -36,11 +36,16 @@ html, body {
 body {
   min-height: 100vh;
   min-height: 100dvh;
+  touch-action: manipulation;
 }
 
 button, input, select {
   font-family: inherit;
   color: inherit;
+}
+
+button {
+  touch-action: manipulation;
 }
 
 @media (prefers-reduced-motion: reduce) {
